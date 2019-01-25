@@ -18,7 +18,8 @@ const session = require('express-session');
 const client = require('./redis').getClient;
 // For Cookie parsing
 const cookieParser = require('cookie-parser');
-
+//importing profile route
+const profile = require('./routes/profile');
 
 /**
  * Other variables
@@ -44,7 +45,7 @@ app.use(cookieParser());
 app.use(session({
     secret: 'express-session',
     cookie: {
-        maxAge: 2000 * 3600 * 60 * 1000
+        maxAge: 2000 * 432 * 100
     },
     resave: false,
     saveUninitialized: false
@@ -57,6 +58,11 @@ require("./mongo");
  * Routes
  */
 app.use("/", require("./routes/auth")({
+    client,
+    logger
+}));
+
+app.use("/profile", profile({
     client,
     logger
 }));

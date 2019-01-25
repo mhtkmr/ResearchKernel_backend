@@ -50,7 +50,10 @@ const userSchema = new Schema({
             required: true
         }
     },
-    hash: String,
+    hash: {
+        type: String,
+        required: true
+    },
     salt: String, // ## TODO: move to .env
     image: String,
     bio: String,

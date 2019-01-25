@@ -7,7 +7,7 @@ module.exports = ({
 }) => {
     const express = require('express');
     const UserModel = require('../models/user');
-
+    const validate = require('./../validator');
     const router = express.Router();
 
     /**
@@ -33,13 +33,16 @@ module.exports = ({
     // ## Register route
     router.route("/").post( async (req,res, next) => {
         try{
+            //search for user with same email in db
             const user = await UserModel.findOne({email : req.body.email});
             if(user){
+                //if found, error => user exist
                 console.log(user);
                 logger.info(`[Auth][Signup] - ${req.url}`);
                 res.status(400).json("User Already Exist.");
             }
             else{
+                // mapping params for new user
                 const newUser = new UserModel({
                     username: req.body.username,
                     email: req.body.email,
@@ -47,11 +50,22 @@ module.exports = ({
                     'fullname.middlename': req.body.middlename,
                     'fullname.lastname': req.body.lastname
                 })
-                newUser.setPassword(req.body.password),
-
+                //saving password in a variable to validate further
+                var pass = req.body.password;
+                //validating password as per requirement
+                const validated =  validate.validatePassword(pass);
+                //if validation fails
+                if(!validated){
+                    res.json('Password Must include one special character, one capital letter, one number with min length 8')
+                }
+                //if password passes validation successfully
+                else{
+                newUser.setPassword(pass);
                 logger.info(`[Auth][Signup] - ${req.url}`);
+                //saving in the db
                 const saveModel = await newUser.save();
                 return res.status(201).json(saveModel);
+                }
             }
 
         }
@@ -78,6 +92,7 @@ module.exports = ({
      * db-validations: {
      *  id:         // auto increment
      *  username:   // unique, required
+     * 
      *  email:      // unique, required
      *  fullName:   // required
      * }
@@ -90,35 +105,34 @@ module.exports = ({
     router.route('/login').post(async (req, res) =>{
        
        try{
-        // const email = req.body.email;
-        const uname = req.body.username;
-        console.log(uname);
-        // const authheader = new Headers()
-        // authheader.set('X-Auth-Token', uid);
-
+        //checking in db for user with either email id or password
         const user = await UserModel.findOne({$or: [{'email': req.body.email}, {'username': req.body.username}]});
         console.log(user._id);
+        //if user not found
         if(!user){
             logger.info(`[Auth][login] - ${req.url}`);
             res.status(404).json('User not Found');
         }
         else{
+            //validating password with the hash saved for this password. 
         if(user.validPassword(req.body.password)){
-           
+           //creating a uuid for session
             const uid = require('uuid/v4')();
+            //converting the userid from object to string for redis
+            const UID = (user._id).toString();
           
-            const val = JSON.stringify({uname});
           
             logger.info(`[Auth][Login] - ${req.url}`);
          
-            const clientr = await client.setAsync(uid, user._id);
+            //setting client for this.user
+            const clientr = await client.setAsync(uid, UID);
          
             console.log(clientr + 'redis');
-         
+            //checking for client registeration
             const reply = await client.getAsync(uid);
          
             console.log(reply + 'reply');
-         
+            // setting payload data.
             const payload = [{'uid': uid},{'id' : user._id}, 
          
             {'uname': user.username},{'email': user.email},
@@ -126,9 +140,9 @@ module.exports = ({
             {'fullname': user.fullname},
          
             {'subscription': user.subscription}];
-            console.log(req.cookies.uid);
-         
-            return res.cookie('uid', uid, {domain: req.hostname}, {maxAge: 86400000}).send(payload);
+            console.log(req.cookies);
+            //sending cookie for session with name connect.sid and domain name with max age set to 24hr         
+            return res.cookie('connect.sid', uid, {domain: req.hostname}, {maxAge: 86400000}).json(payload);
 
                
         }
@@ -166,12 +180,12 @@ module.exports = ({
 
     // ## Logout route
 
-    router.route('/logout').get( async (req, res) => {
+    router.route('/logout').get((req, res) => {
         try{
         const uid = req.cookies.uid;
         redis.del(uid);
         
-        const clear = await req.session.destroy(function(){
+         req.session.destroy(function(){
             console.log('session logged out.');
         });
         res.clearCookie('uid').redirect('/login')
