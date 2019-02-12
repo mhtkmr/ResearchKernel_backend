@@ -1,5 +1,5 @@
 module.exports= ({client,logger}) => async function authenticate(req, res, next) {
-    const sid = await req.cookies['connect.sid'];
+    const sid = req.cookies['connect.sid'];
     const uid =await client.getAsync(sid);
     logger.info(`[Auth][module]-${sid},${uid}`);
     if((!sid||uid)||(sid||!uid)||(!sid||!uid)){
