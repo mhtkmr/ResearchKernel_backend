@@ -9,6 +9,7 @@ module.exports = ({
     const UserModel = require('../models/user');
     const validate = require('./../validator');
     const router = express.Router();
+    const passport = require('passport');
 
     /**
      * Test Route
@@ -117,10 +118,9 @@ module.exports = ({
             //validating password with the hash saved for this password. 
         if(user.validPassword(req.body.password)){
 
-            
           
-           //requesting sessionId
-            const sid = req.sessionID;
+           //creating a uuid for session
+            const uid = req.sessionID;
             //converting the userid from object to string for redis
             const UID = (user._id).toString();
           
@@ -128,15 +128,15 @@ module.exports = ({
             logger.info(`[Auth][Login] - ${req.url}`);
          
             //setting client for this.user
-            const clientr = await client.setAsync(sid, UID);
+            const clientr = await client.setAsync(uid, UID);
          
             console.log(clientr + 'redis');
             //checking for client registeration
-            const reply = await client.getAsync(sid);
+            const reply = await client.getAsync(uid);
          
             console.log(reply + 'reply');
             // setting payload data.
-            const payload = [{'sid': sid},{'id' : user._id}, 
+            const payload = [{'uid': uid},{'id' : user._id}, 
          
             {'uname': user.username},{'email': user.email},
          
@@ -144,10 +144,25 @@ module.exports = ({
          
             {'subscription': user.subscription}];
             console.log(req.sessionID);
+
+            passport.authenticate('local',function(err, user){
+                if(user){
+                successRedirect: '/'
+                }
+                if(!user){
+                    failureRedirect:'/login'
+                }
+                if(err){
+                    console.log(err.message);
+                    
+                }
+            })            
+            console.log(req.isAuthenticated());
             
             //sending cookie for session with name connect.sid and domain name with max age set to 24hr         
-            return res.set({'X-Auth-Token': `${sid} ${UID}`}).cookie('connect.sid', sid, {domain: req.hostname}, {maxAge: 86400000}).send(payload);
+            return res.set({'X-Auth-Token': `${uid}`}).cookie('connect.sid', uid, {domain: req.hostname}, {maxAge: 86400000}).send(payload);
 
+               
         }
         
         }
@@ -155,7 +170,7 @@ module.exports = ({
     catch(err){
         console.log(err);
     }
-
+        
 
 
     }
@@ -186,7 +201,7 @@ module.exports = ({
     router.route('/logout').get((req, res,next) => {
         try{
 
-        const uid = req.sessionID;
+        const uid = req.cookies.uid;
         redis.del(uid);
         
          req.session.destroy(function(){

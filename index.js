@@ -8,6 +8,8 @@ const express = require('express');
  */
 // Handling cors
 const cors = require('cors');
+//for generating random uuids of user
+const uuid = require('uuid/v4');
 // Body parser for req/res
 const bodyParser = require('body-parser');
 // Nice cool logger (Bunyan)
@@ -20,6 +22,8 @@ const client = require('./redis').getClient;
 const cookieParser = require('cookie-parser');
 //importing profile route
 const profile = require('./routes/profile');
+// user authentication
+const authenticate = require('./middleware/authentication');
 
 /**
  * Other variables
@@ -28,6 +32,7 @@ const profile = require('./routes/profile');
 const isProduction = config["env"] === 'production';
 // Initialize app
 const app = express();
+
 
 /**
  * Application Middlewares
@@ -43,6 +48,12 @@ app.use(bodyParser.json());
 app.use(cookieParser());
 
 app.use(session({
+    genid: function(req){
+        console.log('inside id fn');
+        console.log(req.sessionID);
+        return uuid();        
+    }
+,
     secret: 'express-session',
     cookie: {
         maxAge: 2000 * 432 * 100
@@ -54,6 +65,7 @@ app.use(session({
 // ## Configure databases here.
 require("./mongo");
 
+
 /**
  * Routes
  */
@@ -62,7 +74,7 @@ app.use("/", require("./routes/auth")({
     logger
 }));
 
-app.use("/profile", profile({
+app.use("/profile", authenticate, profile({
     client,
     logger
 }));

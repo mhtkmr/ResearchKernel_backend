@@ -5,6 +5,7 @@ const {
     validateUsername
 } = require("./../validator");
 const Schema = mongo.Schema;
+mongo.set('useCreateIndex', true);
 
 const userSchema = new Schema({
     username: {
@@ -15,7 +16,7 @@ const userSchema = new Schema({
         required: 'Username is required',
         validate: [validateUsername, 'Invalid username'],
         // match: [validateUsername, 'Invalid username'],
-        index: true
+        // index: true
     },
     email: {
         type: String,
@@ -25,7 +26,7 @@ const userSchema = new Schema({
         required: 'Email address is required',
         validate: [validateEmail, 'Invalid email address'],
         // match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Invalid email address'],
-        index: true
+        // index: true
     },
     // password: {
     //     type: String,
